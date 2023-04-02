@@ -1,6 +1,6 @@
-resource "aws_security_group" "name" {
+resource "aws_security_group" "main" {
   vpc_id = aws_vpc.main.id
-  egress = {
+  egress {
     from_port       = 0
     to_port         = 0
     protocol        = "-1"
@@ -13,21 +13,21 @@ resource "aws_security_group" "name" {
 }
 
 resource "aws_iam_role" "cluster" {
-  name               = "${var.prefix}-${var.custer_name}-role"
+  name               = "${var.prefix}-${var.cluster_name}-role"
   assume_role_policy = <<POLICY
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "eks.amazonaws.com"
-        },
-        "Action": "sts:AssumeRole",
-      }
-    ]
-  }
-  POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "eks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}    
+POLICY
 }
 
 resource "aws_iam_role_policy_attachment" "cluster-AmazonEKSVPCResourceController" {
@@ -38,4 +38,24 @@ resource "aws_iam_role_policy_attachment" "cluster-AmazonEKSVPCResourceControlle
 resource "aws_iam_role_policy_attachment" "cluster-AmazonEKSClusterPolicy" {
   role       = aws_iam_role.cluster.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+resource "aws_cloudwatch_log_group" "main" {
+  name              = "/aws/eks/${var.prefix}-${var.cluster_name}/cluster"
+  retention_in_days = var.retention_days
+}
+
+resource "aws_eks_cluster" "main" {
+  name                      = "${var.prefix}-${var.cluster_name}"
+  role_arn                  = aws_iam_role.cluster.arn
+  enabled_cluster_log_types = ["api", "audit"]
+  vpc_config {
+    subnet_ids         = aws_subnet.main[*].id
+    security_group_ids = [aws_security_group.main.id]
+  }
+  depends_on = [
+    aws_cloudwatch_log_group.main,
+    aws_iam_role_policy_attachment.cluster-AmazonEKSClusterPolicy,
+    aws_iam_role_policy_attachment.cluster-AmazonEKSVPCResourceController,
+  ]
 }

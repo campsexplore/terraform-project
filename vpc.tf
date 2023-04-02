@@ -30,7 +30,7 @@ resource "aws_route_table" "main" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main.id
   }
-  tags {
+  tags = {
     Name = "${var.prefix}-rtb"
   }
 }
